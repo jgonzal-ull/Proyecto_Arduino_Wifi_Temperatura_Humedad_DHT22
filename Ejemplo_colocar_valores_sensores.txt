@@ -1,0 +1,106 @@
+#include <PubSubClient.h>
+#include <ESP8266WiFi.h>
+extern "C" {
+  #include "user_interface.h"
+}
+
+const char* ssid = "BTHub5-72W5";
+const char* password = "xxxxxxxxxx";
+
+char* server = "quickstart.messaging.internetofthings.ibmcloud.com";
+char* topic = "iot-2/evt/status/fmt/json";
+char clientid[50] = "d:quickstart:iotsample-ESP8266:";
+
+WiFiClient wifiClient;
+PubSubClient client(server, 1883, callback, wifiClient);
+
+long startMillis;
+
+void setup() {
+  startMillis = millis();
+  Serial.begin(115200);
+  delay(10); // is this necessary?
+
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("WiFi connected in: ");   
+  Serial.println(millis()-startMillis);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // get MAC address
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  String macString = macToStr(mac);
+
+  Serial.print("MAC address: ");
+  Serial.println(macString);
+
+  String clientName;
+  clientName += clientid;
+  clientName += macString;
+  clientName.toCharArray(clientid, clientName.length()+1);
+
+  Serial.println();
+  Serial.println("View data at:");
+  Serial.print("https://quickstart.internetofthings.ibmcloud.com/#/device/");
+  Serial.print(macString);
+  Serial.println("/sensor/");
+
+  // Uncomment this delay and then the client.connect will work quickly
+  // Serial.println("Wait 15 sec...");
+  // delay(15000);
+
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(server);
+  while (!!!client.connect(clientid)) {
+     Serial.print(".");
+     delay(500);
+  }
+  Serial.println("");
+  Serial.println("Connected to MQTT broker");
+  
+  String payload = "{\"d\":{\"myName\":\"ESP8266\",\"counter\":";
+  payload += 42; // replace this with a temperature reading or something
+  payload += "}}";
+  
+  if (client.publish(topic, (char*) payload.c_str())) {
+    Serial.print("Published ok: ");
+    Serial.println(payload);
+  } else {
+    Serial.println("Publish failed");
+  }
+
+  Serial.print("Going to sleep, time taken: ");
+  Serial.println(millis()-startMillis);
+  
+  system_deep_sleep_set_option(0);
+  system_deep_sleep(10000000); // deep sleep for 10 seconds
+  // delay(100); // seem to need this as otherwise it continues executing loop a bit before going to sleep
+}
+
+void loop() {
+  // gone to sleep so wont get here
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.println("callback invoked");
+}
+
+String macToStr(const uint8_t* mac) {
+  String result;
+  for (int i = 0; i < 6; ++i) {
+    result += String(mac[i], 16);
+  }
+  return result;
+} - See more at: http://www.esp8266.com/viewtopic.php?f=28&t=2430#sthash.pesioO74.dpuf
